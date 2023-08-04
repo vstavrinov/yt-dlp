@@ -13,7 +13,7 @@ SHA="$(curl                                             \
 curl -X PUT                                             \
     -H "Accept: application/vnd.github.v3+json"         \
     -H "Authorization: token $YOUTUBE_DL_SERVICE_TOKEN" \
-    -d '{"message": "Update youtube-dl to '$VERSION'",
+    -d '{"message": "Update yt-dlp to '$VERSION'",
          "sha": "'$SHA'",
          "content": "'$CONTENT'"
       }'                                                \
