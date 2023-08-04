@@ -3,3 +3,8 @@ build-backend = 'setuptools.build_meta'
 # https://github.com/yt-dlp/yt-dlp/issues/5941
 # https://github.com/pypa/distutils/issues/17
 requires = ['setuptools > 50']
+
+[tool.versioningit.format]
+distance = "{base_version}.{distance}"
+dirty = "{base_version}.{distance}.0"
+distance-dirty = "{base_version}.{distance}.1"
