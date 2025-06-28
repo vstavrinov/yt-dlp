@@ -1,6 +1,5 @@
 import hashlib
 import hmac
-import json
 import re
 import time
 import uuid
@@ -29,31 +28,20 @@ class HotStarBaseIE(InfoExtractor):
             headers={'x-country-code': 'IN', 'x-platform-code': 'PCTV'})
 
     def _call_api_impl(self, path, video_id, query, st=None, cookies=None):
+        if not cookies or not cookies.get('userUP'):
+            self.raise_login_required()
+
         st = int_or_none(st) or int(time.time())
         exp = st + 6000
         auth = f'st={st}~exp={exp}~acl=/*'
         auth += '~hmac=' + hmac.new(self._AKAMAI_ENCRYPTION_KEY, auth.encode(), hashlib.sha256).hexdigest()
-
-        if cookies and cookies.get('userUP'):
-            token = cookies.get('userUP').value
-        else:
-            token = self._download_json(
-                f'{self._API_URL}/um/v3/users',
-                video_id, note='Downloading token',
-                data=json.dumps({'device_ids': [{'id': str(uuid.uuid4()), 'type': 'device_id'}]}).encode(),
-                headers={
-                    'hotstarauth': auth,
-                    'x-hs-platform': 'PCTV',  # or 'web'
-                    'Content-Type': 'application/json',
-                })['user_identity']
-
         response = self._download_json(
             f'{self._API_URL}/{path}', video_id, query=query,
             headers={
                 'hotstarauth': auth,
                 'x-hs-appversion': '6.72.2',
                 'x-hs-platform': 'web',
-                'x-hs-usertoken': token,
+                'x-hs-usertoken': cookies['userUP'].value,
             })
 
         if response['message'] != "Playback URL's fetched successfully":
@@ -232,10 +220,15 @@ class HotStarIE(HotStarBaseIE):
         video_type = self._TYPE.get(video_type, video_type)
         cookies = self._get_cookies(url)  # Cookies before any request
 
-        video_data = traverse_obj(
-            self._call_api_v1(
-                f'{video_type}/detail', video_id, fatal=False, query={'tas': 10000, 'contentId': video_id}),
-            ('body', 'results', 'item', {dict})) or {}
+        # tas=10000 can cause HTTP Error 504, see https://github.com/yt-dlp/yt-dlp/issues/7946
+        for tas in (10000, 0):
+            query = {'tas': tas, 'contentId': video_id}
+            video_data = traverse_obj(
+                self._call_api_v1(f'{video_type}/detail', video_id, fatal=False, query=query),
+                ('body', 'results', 'item', {dict})) or {}
+            if video_data:
+                break
+
         if not self.get_param('allow_unplayable_formats') and video_data.get('drmProtected'):
             self.report_drm(video_id)
 
